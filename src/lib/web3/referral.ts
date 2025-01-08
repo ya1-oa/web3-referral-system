@@ -1,6 +1,6 @@
 import { publicClient, getWalletClient } from './contract';
-import { CONTRACT_ADDRESS, REWARD_TOKEN_ADDRESS } from './config';
-import { contractABI, tokenABI } from './abi';
+import { CONTRACT_ADDRESS, NFT_CONTRACT_ADDRESS, REWARD_TOKEN_ADDRESS } from './config';
+import { contractABI, tokenABI, nftABI } from './abi';
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
@@ -89,19 +89,22 @@ export async function getUserStats(address: string) {
       abi: contractABI,
       functionName: 'getUserStats',
       args: [address],
-    }) as [string, bigint, bigint, boolean];
+    }) as [string, bigint, bigint, boolean, boolean, bigint];
 
     return {
       referrer: data[0],
       referralCount: Number(data[1]),
       totalRewards: Number(data[2]),
       isRegistered: data[3],
+      isSubscribed: data[4],
+      tokenId: data[5],
     };
   } catch (error) {
     console.error('Error in getUserStats:', error);
     throw error;
   }
 }
+
 
 export async function getUserReferrals(address: string) {
   try {
@@ -137,6 +140,108 @@ export async function getReferralTree(address: string): Promise<ReferralInfo[]> 
     return data;
   } catch (error) {
     console.error('Error in getReferralTree:', error);
+    throw error;
+  }
+}
+
+export async function getNFTExpiryTime(address: string) {
+  const tokenId = await publicClient.readContract({
+    address: CONTRACT_ADDRESS,
+    abi: contractABI,
+    functionName: 'getUserStats',
+    args: [address],
+  }) as [string, bigint, bigint, boolean, boolean, bigint];
+  
+  const TOKENID = tokenId[5];
+  
+  try {
+    const data = await publicClient.readContract({
+      address: NFT_CONTRACT_ADDRESS,
+      abi: nftABI,
+      functionName: 'timeUntilExpired',
+      args: [TOKENID],
+    }) as bigint;
+    return data;
+  } catch (error) {
+    console.error('Error in getNFTExpiryTime:', error);
+    throw error;
+  }
+}
+
+export async function getNFTSubscriptionStatus(address: string) {
+  try {
+    const data = await publicClient.readContract({
+      address: CONTRACT_ADDRESS,
+      abi: contractABI,
+      functionName: 'checkSubscriptionStatus',
+      args: [address],
+    }) as boolean;
+
+    return data;
+  } catch (error) {
+    console.error('Error in getNFTSubscriptionStatus:', error);
+    throw error;
+  }
+}
+
+// call this on the NFT contract
+export async function getNFTTokenURI(address: string) {
+  try {
+    const tokenId = await publicClient.readContract({
+      address: CONTRACT_ADDRESS,
+      abi: contractABI,
+      functionName: 'getUserStats',
+      args: [address],
+    }) as [string, bigint, bigint, boolean, boolean, bigint];
+    
+    const TOKENID = tokenId[5];
+
+    const uri = await publicClient.readContract({
+      address: NFT_CONTRACT_ADDRESS,
+      abi: nftABI,
+      functionName: 'tokenURI',
+      args: [TOKENID],
+    }) as string;
+
+    // Fetch and parse metadata
+    const response = await fetch(uri);
+    const metadata = await response.json();
+    return metadata.image || uri; // Return image URL or fallback to URI
+
+  } catch (error) {
+    console.error('Error in getNFTTokenURI:', error);
+    throw error;
+  }
+}
+
+export async function renewSubscription(address: string) {
+  try {
+    const walletClient = await getWalletClient();
+    const [walletAddress] = await walletClient.getAddresses();
+    
+    // First approve tokens for subscription
+    const approveHash = await walletClient.writeContract({
+      address: REWARD_TOKEN_ADDRESS,
+      abi: tokenABI,
+      functionName: 'approve',
+      args: [CONTRACT_ADDRESS, BigInt('50000000000000000000')], // 50 tokens
+      account: walletAddress,
+    });
+    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+    // Then call subscribe
+    const hash = await walletClient.writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: contractABI,
+      functionName: 'subscribe',
+      args: [address],
+      account: walletAddress,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    return { success: true };
+  } catch (error) {
+    console.error('Error in renewSubscription:', error);
     throw error;
   }
 }

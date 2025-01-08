@@ -35,8 +35,9 @@ export function ReferralRegistration({ userAddress }: Props) {
       const result = await registerUser(referrerAddress || undefined);
       if (result.success) {
         setSuccess(true);
-        // Clear the stored referrer after successful registration
         localStorage.removeItem('referrer');
+        // Force re-check of registration status
+        window.location.reload();
       } else {
         setError(result.error ? String(result.error) : 'Registration failed. Please try again.');
       }

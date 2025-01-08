@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUserStats, getUserReferrals, getReferralTree } from './referral';
+import { getUserStats, getUserReferrals, getReferralTree, getNFTTokenURI, getNFTSubscriptionStatus, getNFTExpiryTime } from './referral';
 
 interface UserStats {
   referrer: string;
@@ -96,4 +96,48 @@ export function useReferralTree(address: string) {
   }, [address]);
 
   return { tree, loading, error };
+}
+
+export function useSubscriptionNFT(address: string) {
+  const [nftData, setNftData] = useState<{
+    timeUntilExpiry: bigint;
+    isSubscribed: boolean;
+    tokenURI: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!address) {
+      setLoading(false);
+      return;
+    }
+
+    async function fetchNFTData() {
+      try {
+        const [timeUntilExpiry, isSubscribed, tokenURI] = await Promise.all([
+          getNFTExpiryTime(address),
+          getNFTSubscriptionStatus(address),
+          getNFTTokenURI(address)
+        ]);
+
+        setNftData({
+          timeUntilExpiry,
+          isSubscribed,
+          tokenURI,
+        });
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchNFTData();
+    // Poll every minute to check subscription status
+    const interval = setInterval(fetchNFTData, 60000);
+    return () => clearInterval(interval);
+  }, [address]);
+
+  return { nftData, loading, error };
 }

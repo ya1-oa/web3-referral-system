@@ -1,8 +1,9 @@
 import { useUserStats, useUserReferrals, useReferralTree } from '../lib/web3/hooks';
 import { formatReward, shortenAddress } from '../lib/web3/utils';
 import '../styles/ReferralStats.css';
-import { useMemo, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getUserStats } from '../lib/web3/referral';
+import { SubscriptionNFT } from './SubscriptionNFT';
 
 interface UserStats {
   totalRewards: number;
@@ -64,17 +65,19 @@ export function ReferralStats({ userAddress }: Props) {
     return <div className="text-center">Loading...</div>;
   }
 
-  function getConnectorOffset(parentAddr: string, parentLevel: ReferralInfo[]) {
-    if (!parentLevel) return 0;
-    const parentIndex = parentLevel.findIndex(p => p.addr.toLowerCase() === parentAddr.toLowerCase());
-    return parentIndex * 240; // Adjust based on node width + gap
-  }
+  //function getConnectorOffset(parentAddr: string, parentLevel: ReferralInfo[]) {
+  //  if (!parentLevel) return 0;
+  //  const parentIndex = parentLevel.findIndex(p => p.addr.toLowerCase() === parentAddr.toLowerCase());
+  //  return parentIndex * 240; // Adjust based on node width + gap
+  //}
 
   return (
     <div className="stats-container">
+      <SubscriptionNFT userAddress={userAddress} />
+      
       <h2 className="stats-header">Your Referral Stats</h2>
       {stats && (
-        <div className="stats-grid">
+        <div className="stats-grid mt-6">
           <div className="stat-card">
             <label className="stat-label">Total Rewards</label>
             <div className="stat-value">{formatReward(BigInt(stats.totalRewards))} Tokens</div>
