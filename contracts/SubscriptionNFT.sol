@@ -38,8 +38,8 @@ contract SubscriptionNFT is ERC721, Ownable {
     }
 
     function mint(address to) external returns (uint256) {
-        //require(msg.sender == referralContract, "Only referral contract can mint");
-        
+        require(msg.sender == referralContract, "Only referral contract can mint");
+
         _tokenIdCounter++;
         uint256 tokenId = _tokenIdCounter;
         
@@ -59,11 +59,13 @@ contract SubscriptionNFT is ERC721, Ownable {
         if (block.timestamp >= details.expirationTimeStamp) {
             return 0;
         }
+
         return details.expirationTimeStamp - block.timestamp;
     }
 
-    function renewSubscription(uint256 tokenId) external onlyOwner {
-        _ownerOf(tokenId);
+    function renewSubscription(uint256 tokenId, address user) external {
+        require(msg.sender == referralContract, "Only referral contract can renew");
+        require(ownerOf(tokenId) == user, "Not the NFT owner");
         uint256 newExpirationTime = block.timestamp + SUB_DURATION;
         nftDetails[tokenId] = NFTDetails(newExpirationTime);
         emit NFTRenewed(tokenId, newExpirationTime);
@@ -78,7 +80,7 @@ contract SubscriptionNFT is ERC721, Ownable {
     }
 
     //function batchSetActiveStatuses() {
-    //
+    //  
     //}
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {

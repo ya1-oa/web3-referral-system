@@ -13,10 +13,14 @@ export function SubscriptionNFT({ userAddress }: Props) {
   const handleRenew = async () => {
     setRenewing(true);
     try {
-      await renewSubscription(userAddress);
-      window.location.reload(); // Refresh to show new status
-    } catch (err) {
+      await renewSubscription();
+      window.location.reload();
+    } catch (err: any) {
       console.error('Failed to renew:', err);
+      const errorMessage = err.message?.includes("reason: ") 
+        ? err.message.split("reason: ")[1].split('"')[0]
+        : "Unknown error occurred";
+      alert(`Renewal failed: ${errorMessage}`);
     } finally {
       setRenewing(false);
     }

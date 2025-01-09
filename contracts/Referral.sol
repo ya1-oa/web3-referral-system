@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface ISubcriptionNFT is IERC721 {
     function mint(address to) external returns (uint256);
-    function renewSubscription(uint256 tokenId ) external;
+    function renewSubscription(uint256 tokenId, address user) external;
     function timeUntilExpired(uint256 tokenId) external view returns (uint256);
 }
 
@@ -32,7 +32,7 @@ contract Referral is Ownable, ReentrancyGuard {
     
     uint256[3] public referralRewards = [500, 300, 100]; // 5%, 3%, 1%
     uint256 public registrationAmount = 100 * 10**18; // 100 tokens
-    uint256 public subscriptionAmount = 50;
+    uint256 public subscriptionAmount = 50 * 10**18; // 50 tokens with 18 decimals
     uint256 public subscriptionDuration = 3 minutes;
     
     mapping(address => User) public users;
@@ -70,20 +70,32 @@ contract Referral is Ownable, ReentrancyGuard {
     }
     
     function subscribe(address user) external nonReentrant {
-        require(subscriptionNFT.ownerOf(users[user].tokenID) != address(0), "Must be owner of Token");
-
-        require(users[user].isRegistered, "Must be registered");
+        require(users[user].isRegistered, "User is not registered");
         
-        //transfer subscription payment
-        require(rewardToken.transferFrom(user, address(this), subscriptionAmount), "Subscription payment failed");
-        subscriptionNFT.renewSubscription(users[user].tokenID);
+        uint256 tokenId = users[user].tokenID;
+        require(tokenId != 0, "No NFT found");
+        require(subscriptionNFT.ownerOf(tokenId) == user, "Not NFT owner");
         
-        emit SubscriptionRenewed(msg.sender, users[user].tokenID, block.timestamp + subscriptionDuration);
-
-        users[user].isSubscribed = true; //payment successful activate subscription
-    
-        processReferralRewards(user, subscriptionAmount); // process payment
-        emit SubscriptionRenewed(user, users[user].tokenID, block.timestamp + subscriptionDuration);
+        // Check token allowance first
+        uint256 allowance = rewardToken.allowance(user, address(this));
+        require(allowance >= subscriptionAmount, "Insufficient token allowance");
+        
+        // Check token balance
+        uint256 balance = rewardToken.balanceOf(user);
+        require(balance >= subscriptionAmount, "Insufficient token balance");
+        
+        // Transfer tokens first
+        require(rewardToken.transferFrom(user, address(this), subscriptionAmount), 
+            "Token transfer failed");
+        
+        // Then renew subscription
+        try subscriptionNFT.renewSubscription(tokenId, user) {
+            users[user].isSubscribed = true;
+            processReferralRewards(user, subscriptionAmount);
+            emit SubscriptionRenewed(user, tokenId, block.timestamp + subscriptionDuration);
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("NFT Renewal failed: ", reason)));
+        }
     }
 
     function checkSubscriptionStatus(address user) public view returns (bool) {

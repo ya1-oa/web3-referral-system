@@ -1,6 +1,7 @@
 import { publicClient, getWalletClient } from './contract';
 import { CONTRACT_ADDRESS, NFT_CONTRACT_ADDRESS, REWARD_TOKEN_ADDRESS } from './config';
 import { contractABI, tokenABI, nftABI } from './abi';
+import { Users } from 'lucide-react';
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
@@ -97,7 +98,7 @@ export async function getUserStats(address: string) {
       totalRewards: Number(data[2]),
       isRegistered: data[3],
       isSubscribed: data[4],
-      tokenId: data[5],
+      tokenId: Number(data[5]),
     };
   } catch (error) {
     console.error('Error in getUserStats:', error);
@@ -214,31 +215,68 @@ export async function getNFTTokenURI(address: string) {
   }
 }
 
-export async function renewSubscription(address: string) {
+export async function renewSubscription() {
   try {
     const walletClient = await getWalletClient();
-    const [walletAddress] = await walletClient.getAddresses();
+    const [address] = await walletClient.getAddresses();
+ 
+    // Check registration first
+    const stats = await getUserStats(address);
+    if (!stats.isRegistered) {
+      throw new Error("Must be registered first");
+    }
+
+    // Verify NFT ownership
+    const nftOwner = await publicClient.readContract({
+      address: NFT_CONTRACT_ADDRESS,
+      abi: nftABI,
+      functionName: 'ownerOf',
+      args: [stats.tokenId],
+    });
     
-    // First approve tokens for subscription
+    if (nftOwner !== address) {
+      throw new Error("Must be owner of NFT");
+    }
+
+    // Get user's NFT token ID first
+    const userStats = await getUserStats(address);
+    if (!userStats.tokenId) {
+      throw new Error("No NFT found for this address");
+    }
+
+    // Check token balance and approve
+    const balance = await publicClient.readContract({
+      address: REWARD_TOKEN_ADDRESS,
+      abi: tokenABI,
+      functionName: 'balanceOf',
+      args: [address],
+    }) as bigint;
+
+    if (balance < BigInt('50000000000000000000')) {
+      throw new Error("Insufficient REF tokens. You need 50 tokens to renew.");
+    }
+
     const approveHash = await walletClient.writeContract({
       address: REWARD_TOKEN_ADDRESS,
       abi: tokenABI,
       functionName: 'approve',
-      args: [CONTRACT_ADDRESS, BigInt('50000000000000000000')], // 50 tokens
-      account: walletAddress,
+      args: [CONTRACT_ADDRESS, BigInt('50000000000000000000')],
+      account: address,
     });
+
     await publicClient.waitForTransactionReceipt({ hash: approveHash });
 
-    // Then call subscribe
+    // Only call subscribe - it handles NFT renewal internally
     const hash = await walletClient.writeContract({
       address: CONTRACT_ADDRESS,
       abi: contractABI,
       functionName: 'subscribe',
       args: [address],
-      account: walletAddress,
+      account: address,
     });
 
     await publicClient.waitForTransactionReceipt({ hash });
+
     return { success: true };
   } catch (error) {
     console.error('Error in renewSubscription:', error);
