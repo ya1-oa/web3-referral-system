@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface ISubcriptionNFT is IERC721 {
     function mint(address to) external returns (uint256);
-    function renewSubscription(uint256 tokenId, address user) external;
+    function renewSubscription(uint256 tokenId ) external;
     function timeUntilExpired(uint256 tokenId) external view returns (uint256);
 }
 
@@ -32,7 +32,7 @@ contract Referral is Ownable, ReentrancyGuard {
     
     uint256[3] public referralRewards = [500, 300, 100]; // 5%, 3%, 1%
     uint256 public registrationAmount = 100 * 10**18; // 100 tokens
-    uint256 public subscriptionAmount = 50 * 10**18; // 50 tokens with 18 decimals
+    uint256 public subscriptionAmount = 50 * 10**18;
     uint256 public subscriptionDuration = 3 minutes;
     
     mapping(address => User) public users;
@@ -89,7 +89,7 @@ contract Referral is Ownable, ReentrancyGuard {
             "Token transfer failed");
         
         // Then renew subscription
-        try subscriptionNFT.renewSubscription(tokenId, user) {
+        try subscriptionNFT.renewSubscription(tokenId) {
             users[user].isSubscribed = true;
             processReferralRewards(user, subscriptionAmount);
             emit SubscriptionRenewed(user, tokenId, block.timestamp + subscriptionDuration);
@@ -150,9 +150,16 @@ contract Referral is Ownable, ReentrancyGuard {
         registrationAmount = _newAmount;
     }
     
-    function getUserReferrals(address user) external view returns (address[] memory) {
-        return referrals[user];
-    }
+     function getUserReferrals(address user) external view returns (User[] memory) {
+        address[] memory userAddresses = referrals[user];
+        User[] memory userStats = new User[](userAddresses.length);
+    
+        for (uint i = 0; i < userAddresses.length; i++) {
+        userStats[i] = users[userAddresses[i]];
+        }
+    
+    return userStats;
+}
     
     function getUserStats(address user) external view returns (
         address referrer,

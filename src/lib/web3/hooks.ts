@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { getUserStats, getUserReferrals, getReferralTree, getNFTTokenURI, getNFTSubscriptionStatus, getNFTExpiryTime } from './referral';
+import { getUserStats, getUserReferrals, getReferralTree, getNFTTokenURI, getNFTSubscriptionStatus, getNFTExpiryTime, getBatchUserStats } from './referral';
 
 interface UserStats {
   referrer: string;
-  referralCount: number;
-  totalRewards: number;
+  referralCount: bigint;
+  totalRewards: bigint;
   isRegistered: boolean;
+  isSubscribed: boolean;
+  tokenID: bigint;
 }
 
 interface ReferralInfo {
   addr: string;
-  level: number;
+  level:  number;
   rewardsEarned: bigint;
 }
 
@@ -43,7 +45,7 @@ export function useUserStats(address: string) {
 }
 
 export function useUserReferrals(address: string) {
-  const [referrals, setReferrals] = useState<string[]>([]);
+  const [referrals, setReferrals] = useState<UserStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -56,7 +58,7 @@ export function useUserReferrals(address: string) {
     async function fetchReferrals() {
       try {
         const data = await getUserReferrals(address);
-        setReferrals(data as string[]);
+        setReferrals(data as UserStats[]);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -140,4 +142,30 @@ export function useSubscriptionNFT(address: string) {
   }, [address]);
 
   return { nftData, loading, error };
+}
+
+
+export function useBatchUserStats(addresses: string[]) {
+  const [stats, setStats] = useState<UserStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+
+    async function fetchStats() {
+      try {
+        const [data] = await Promise.all([
+          getBatchUserStats(addresses)
+          ]);
+
+          setStats(data)
+        } catch (error) {
+          setError(error as Error);
+        } finally {
+          setLoading(false);
+        }}
+
+  fetchStats();
+
+  return { stats, loading, error };
+  
 }

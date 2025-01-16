@@ -1,9 +1,17 @@
 import { publicClient, getWalletClient } from './contract';
 import { CONTRACT_ADDRESS, NFT_CONTRACT_ADDRESS, REWARD_TOKEN_ADDRESS } from './config';
 import { contractABI, tokenABI, nftABI } from './abi';
-import { Users } from 'lucide-react';
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
+
+interface UserStats {
+  referrer: string;
+  referralCount: bigint;
+  totalRewards: bigint;
+  isRegistered: boolean;
+  isSubscribed: boolean;
+  tokenID: bigint;
+}
 
 export async function registerUser(referrerAddress?: string) {
   try {
@@ -94,11 +102,11 @@ export async function getUserStats(address: string) {
 
     return {
       referrer: data[0],
-      referralCount: Number(data[1]),
-      totalRewards: Number(data[2]),
+      referralCount: data[1],
+      totalRewards: data[2],
       isRegistered: data[3],
       isSubscribed: data[4],
-      tokenId: Number(data[5]),
+      tokenID: data[5],
     };
   } catch (error) {
     console.error('Error in getUserStats:', error);
@@ -114,9 +122,16 @@ export async function getUserReferrals(address: string) {
       abi: contractABI,
       functionName: 'getUserReferrals',
       args: [address],
-    });
+    }) as [string, bigint, bigint, boolean, boolean, bigint][];
 
-    return referrals;
+    return referrals.map(referrals => ({
+      referrer: referrals[0],
+      referralCount: referrals[1],
+      totalRewards: referrals[2],
+      isRegistered: referrals[3],
+      isSubscribed: referrals[4],
+      tokenID: referrals[5],
+    }));
   } catch (error) {
     console.error('Error in getUserReferrals:', error);
     throw error;
@@ -136,9 +151,13 @@ export async function getReferralTree(address: string): Promise<ReferralInfo[]> 
       abi: contractABI,
       functionName: 'getReferralTree',
       args: [address],
-    }) as ReferralInfo[];
+    }) as [string, number, bigint][];
 
-    return data;
+    return data.map(tree => ({
+      addr: tree[0],
+      level: Number(tree[1]),
+      rewardsEarned: tree[2],
+    }));
   } catch (error) {
     console.error('Error in getReferralTree:', error);
     throw error;
@@ -154,7 +173,7 @@ export async function getNFTExpiryTime(address: string) {
   }) as [string, bigint, bigint, boolean, boolean, bigint];
   
   const TOKENID = tokenId[5];
-  
+  console.log(TOKENID);
   try {
     const data = await publicClient.readContract({
       address: NFT_CONTRACT_ADDRESS,
@@ -231,17 +250,11 @@ export async function renewSubscription() {
       address: NFT_CONTRACT_ADDRESS,
       abi: nftABI,
       functionName: 'ownerOf',
-      args: [stats.tokenId],
-    });
+      args: [stats.tokenID],
+    }) as string;
     
     if (nftOwner !== address) {
       throw new Error("Must be owner of NFT");
-    }
-
-    // Get user's NFT token ID first
-    const userStats = await getUserStats(address);
-    if (!userStats.tokenId) {
-      throw new Error("No NFT found for this address");
     }
 
     // Check token balance and approve
@@ -280,6 +293,23 @@ export async function renewSubscription() {
     return { success: true };
   } catch (error) {
     console.error('Error in renewSubscription:', error);
+    throw error;
+  }
+}
+
+export async function getBatchUserStats(addresses: string[]) {
+  try {
+    // Call the contract's batch function
+    const stats = await publicClient.readContract({
+      address: CONTRACT_ADDRESS,
+      abi: contractABI,
+      functionName: 'batchGetUserStats',
+      args: [addresses],
+    }) as UserStats[];
+
+    return stats;
+  } catch (error) {
+    console.error('Error in getBatchUserStats:', error);
     throw error;
   }
 }

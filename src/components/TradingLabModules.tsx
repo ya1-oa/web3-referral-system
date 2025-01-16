@@ -3,13 +3,7 @@ import { Users, BarChart2, TrendingUp, Award, Share2, TestTube, Microscope, Lock
 
 // ... (keep existing interfaces and ReferralNode component)
 
-function Dashboard() {
-  const stats = {
-    totalReferrals: 28,
-    totalRewards: 1250,
-    activeTraders: 15,
-    averageROI: 24.5
-  };
+function TradingLabModules() {
 
   const modules = [
     {
@@ -39,7 +33,6 @@ function Dashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">Research Dashboard</h1>
       
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -98,4 +91,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default TradingLabModules;

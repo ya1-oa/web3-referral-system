@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { registerUser } from '../lib/web3/referral';
+import { Link } from 'react-router-dom';
 
 interface Props {
   userAddress: string;
@@ -36,8 +37,6 @@ export function ReferralRegistration({ userAddress }: Props) {
       if (result.success) {
         setSuccess(true);
         localStorage.removeItem('referrer');
-        // Force re-check of registration status
-        window.location.reload();
       } else {
         setError(result.error ? String(result.error) : 'Registration failed. Please try again.');
       }
@@ -89,6 +88,21 @@ export function ReferralRegistration({ userAddress }: Props) {
               />
               <button
                 onClick={copyToClipboard}
+                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+            <div className="text-green-500 text-sm">
+              Go to dashboard!
+            </div>
+              <button
+                onClick={() => <Link to={`/stats/${userAddress}`}>
+                <button className="bg-green-500 text-white px-4 py-2 rounded-lg">
+                  View Stats
+                </button>
+              </Link>}
                 className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
               >
                 Copy
