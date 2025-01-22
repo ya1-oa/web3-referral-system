@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { registerUser } from '../lib/web3/referral';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 
 interface Props {
   userAddress: string;
@@ -97,16 +97,11 @@ export function ReferralRegistration({ userAddress }: Props) {
             <div className="text-green-500 text-sm">
               Go to dashboard!
             </div>
-              <button
-                onClick={() => <Link to={`/stats/${userAddress}`}>
-                <button className="bg-green-500 text-white px-4 py-2 rounded-lg">
-                  View Stats
-                </button>
-              </Link>}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Copy
+            <Link to={`/stats/${userAddress}`}>
+              <button className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                  Dashboard
               </button>
+            </Link>
             </div>
           </div>
         )}

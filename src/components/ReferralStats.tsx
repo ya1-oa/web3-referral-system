@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Users, Award, BarChart2, TrendingUp, Share2 } from 'lucide-react';
-import { useUserStats, useUserReferrals, useReferralTree, useBatchUserStats } from '../lib/web3/hooks';
+import { useUserStats, useUserReferrals, useReferralTree, useBatchUserStats, useGetAddress } from '../lib/web3/hooks';
 import { formatReward, shortenAddress } from '../lib/web3/utils';
 import { SubscriptionNFT } from './SubscriptionNFT';
 
@@ -33,7 +33,7 @@ function buildReferralTree(referrals: ReferralInfo[], batchStats: UserStats[]) {
       );
     }
   });
-
+  console.log(referrals);
   return referrals.map(ref => ({
     ...ref,
     parentAddr: referrerMap.get(ref.addr.toLowerCase())
@@ -42,9 +42,10 @@ function buildReferralTree(referrals: ReferralInfo[], batchStats: UserStats[]) {
 
 export function ReferralStats() {
   const { address } = useParams<{ address: string }>();
-  console.log("ReferralStats component rendered with userAddress:", address);
   
-  if (!address) {
+
+  const {addr: addr} = useGetAddress();
+  if (!address) { 
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center text-red-500">Error: User address is not provided.</div>
@@ -52,16 +53,27 @@ export function ReferralStats() {
     );
   }
 
+  if (addr) {
+    if (address != addr) {
+      return (
+        <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-red-500">Error: Unauthorized access to stat page.</div>
+        </div>
+      )
+    }
+  }
+
+
   const { stats, loading: statsLoading } = useUserStats(address) as { stats: UserStats | null, loading: boolean };
   const { referrals, loading: referralsLoading } = useUserReferrals(address);
   const { tree, loading: treeLoading } = useReferralTree(address);
   
   const referralAddresses = referrals && referrals.length > 0 ? referrals.map(ref => ref.referrer) : [];
-  const { stats: batchStats, loading: isBatchLoading } = referralAddresses.length > 0 
-  ? useBatchUserStats(referralAddresses) 
-  : { stats: [], loading: false };
+  // Always call the hook, but with empty array if no addresses
+  const { stats: batchStats, loading: isBatchLoading } = useBatchUserStats(referralAddresses.length > 0 ? referralAddresses : []);
   
   const [groupedByLevel, setGroupedByLevel] = useState<Record<number, ReferralInfo[]>>({});
+
 
   useEffect(() => {
     async function updateTree() {

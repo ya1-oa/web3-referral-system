@@ -12,6 +12,22 @@ interface ISubcriptionNFT is IERC721 {
     function mint(address to) external returns (uint256);
     function renewSubscription(uint256 tokenId ) external;
     function timeUntilExpired(uint256 tokenId) external view returns (uint256);
+}   
+interface IErrorHandler {
+    function getRevertMsg(bytes memory _returnData) external pure returns (string memory);
+}
+
+// Implementation
+contract ErrorHandler is IErrorHandler {
+    function getRevertMsg(bytes memory _returnData) public pure returns (string memory) {
+        if (_returnData.length < 68) return "Transaction reverted silently";
+        
+        assembly {
+            _returnData := add(_returnData, 0x04)
+        }
+        
+        return abi.decode(_returnData, (string));
+    }
 }
 
 contract Referral is Ownable, ReentrancyGuard {
@@ -42,32 +58,46 @@ contract Referral is Ownable, ReentrancyGuard {
     event ReferralRewardPaid(address indexed user, address indexed referrer, uint256 amount, uint256 level);
     event SubscriptionRenewed(address indexed user, uint256 indexed tokenId, uint256 expiryTime);
     event UserDeactivated(address indexed user, uint256 indexed tokenId);
+    event Log(string message);
+    event LogBytes(bytes data);
 
     constructor(address _rewardToken, address _subscriptionNFT) Ownable(msg.sender) {
         rewardToken = IERC20(_rewardToken);
         subscriptionNFT = ISubcriptionNFT(_subscriptionNFT);
     }
     
-    function register(address referrer) external nonReentrant {
-        require(!users[msg.sender].isRegistered, "Already registered");
-        require(referrer != msg.sender, "Cannot refer yourself");
-        //transfer register amount
-        require(rewardToken.transferFrom(msg.sender, address(this), registrationAmount), "Transfer failed");
-        uint256 tokenId = subscriptionNFT.mint(msg.sender);
+// Error handler interface
 
-        users[msg.sender].isRegistered = true;
-        users[msg.sender].referrer = referrer;
-        users[msg.sender].isSubscribed = true; 
-        users[msg.sender].tokenID = tokenId;
-        
-        if (referrer != address(0) && users[referrer].isRegistered) {
-            users[referrer].referralCount++;
-            referrals[referrer].push(msg.sender);
-            processReferralRewards(msg.sender, registrationAmount);
-        }
-        
+
+
+
+// Modified register function with try-catch
+function register(address referrer) external nonReentrant {
+    try this.registerInternal(referrer) {
         emit UserRegistered(msg.sender, referrer);
+    } catch (bytes memory reason) {
+        revert(ErrorHandler(address(this)).getRevertMsg(reason));
     }
+}
+
+// Internal function that contains the original logic
+function registerInternal(address referrer) external nonReentrant {
+    require(!users[msg.sender].isRegistered, "Already registered");
+    require(referrer != msg.sender, "Cannot refer yourself");
+    require(rewardToken.transferFrom(msg.sender, address(this), registrationAmount), "Transfer failed");
+    
+    uint256 tokenId = subscriptionNFT.mint(msg.sender);
+    users[msg.sender].isRegistered = true;
+    users[msg.sender].referrer = referrer;
+    users[msg.sender].isSubscribed = true; 
+    users[msg.sender].tokenID = tokenId;
+    
+    if (referrer != address(0) && users[referrer].isRegistered) {
+        users[referrer].referralCount++;
+        referrals[referrer].push(msg.sender);
+        processReferralRewards(msg.sender, registrationAmount);
+    }
+}
     
     function subscribe(address user) external nonReentrant {
         require(users[user].isRegistered, "User is not registered");
@@ -242,5 +272,25 @@ contract Referral is Ownable, ReentrancyGuard {
         }
         
         return downline;
+    }
+
+    function batchGetUserStats(address[] calldata userAddresses) external view returns (User[] memory userStats) {
+        userStats = new User[](userAddresses.length);
+        
+        for (uint i = 0; i < userAddresses.length; i++) {
+            address userAddress = userAddresses[i];
+            User memory userInfo = users[userAddress];
+
+            userStats[i] = User({
+                referrer: userInfo.referrer,
+                referralCount: userInfo.referralCount,
+                totalRewards: userInfo.totalRewards,
+                isRegistered: userInfo.isRegistered,
+                isSubscribed: subscriptionNFT.timeUntilExpired(userInfo.tokenID) > 0,
+                tokenID: userInfo.tokenID
+            });
+        }
+        
+        return userStats;
     }
 }

@@ -1,7 +1,6 @@
 import { publicClient, getWalletClient } from './contract';
 import { CONTRACT_ADDRESS, NFT_CONTRACT_ADDRESS, REWARD_TOKEN_ADDRESS } from './config';
 import { contractABI, tokenABI, nftABI } from './abi';
-
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
 interface UserStats {
@@ -13,9 +12,11 @@ interface UserStats {
   tokenID: bigint;
 }
 
+
+
 export async function registerUser(referrerAddress?: string) {
   try {
-    const walletClient = await getWalletClient();
+    const walletClient = getWalletClient();
     const [address] = await walletClient.getAddresses();
 
     // Check token balance first
@@ -38,7 +39,7 @@ export async function registerUser(referrerAddress?: string) {
       address: REWARD_TOKEN_ADDRESS,
       abi: tokenABI,
       functionName: 'approve',
-      args: [CONTRACT_ADDRESS, BigInt('1000000000000000000000')], // 1000 tokens to be safe
+      args: [CONTRACT_ADDRESS, BigInt('10000000000000000000000')], // 100 tokens to be safe
       account: address,
     });
     await publicClient.waitForTransactionReceipt({ hash: approveHash });
@@ -91,6 +92,7 @@ export async function registerUser(referrerAddress?: string) {
   }
 }
 
+
 export async function getUserStats(address: string) {
   try {
     const data = await publicClient.readContract({
@@ -122,16 +124,11 @@ export async function getUserReferrals(address: string) {
       abi: contractABI,
       functionName: 'getUserReferrals',
       args: [address],
-    }) as [string, bigint, bigint, boolean, boolean, bigint][];
+    }) as UserStats[];
 
-    return referrals.map(referrals => ({
-      referrer: referrals[0],
-      referralCount: referrals[1],
-      totalRewards: referrals[2],
-      isRegistered: referrals[3],
-      isSubscribed: referrals[4],
-      tokenID: referrals[5],
-    }));
+
+    return referrals;
+
   } catch (error) {
     console.error('Error in getUserReferrals:', error);
     throw error;
@@ -151,12 +148,14 @@ export async function getReferralTree(address: string): Promise<ReferralInfo[]> 
       abi: contractABI,
       functionName: 'getReferralTree',
       args: [address],
-    }) as [string, number, bigint][];
+    }) as ReferralInfo[];
+
+    console.log(data);
 
     return data.map(tree => ({
-      addr: tree[0],
-      level: Number(tree[1]),
-      rewardsEarned: tree[2],
+      addr: tree.addr,
+      level: Number(tree.level),
+      rewardsEarned: tree.rewardsEarned,
     }));
   } catch (error) {
     console.error('Error in getReferralTree:', error);
@@ -297,6 +296,14 @@ export async function renewSubscription() {
   }
 }
 
+export async function getAddress() {
+  const walletClient = getWalletClient();
+  const [address] = await walletClient.getAddresses();
+ 
+  return address
+
+}
+
 export async function getBatchUserStats(addresses: string[]) {
   try {
     // Call the contract's batch function
@@ -305,9 +312,17 @@ export async function getBatchUserStats(addresses: string[]) {
       abi: contractABI,
       functionName: 'batchGetUserStats',
       args: [addresses],
-    }) as UserStats[];
+    }) as [string, bigint, bigint, boolean, boolean, bigint][];
 
-    return stats;
+    return stats.map(stats => ({
+      referrer: stats[0],
+      referralCount: stats[1],
+      totalRewards: stats[2],
+      isRegistered: stats[3],
+      isSubscribed: stats[4],
+      tokenID: stats[5],
+    }));
+    
   } catch (error) {
     console.error('Error in getBatchUserStats:', error);
     throw error;

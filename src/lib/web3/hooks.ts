@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getUserStats, getUserReferrals, getReferralTree, getNFTTokenURI, getNFTSubscriptionStatus, getNFTExpiryTime, getBatchUserStats } from './referral';
+import { getUserStats, getUserReferrals, getReferralTree, getNFTTokenURI, getNFTSubscriptionStatus, getNFTExpiryTime, getBatchUserStats, getAddress } from './referral';
 
 interface UserStats {
   referrer: string;
@@ -58,7 +58,7 @@ export function useUserReferrals(address: string) {
     async function fetchReferrals() {
       try {
         const data = await getUserReferrals(address);
-        setReferrals(data as UserStats[]);
+        setReferrals(data);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -168,4 +168,26 @@ export function useBatchUserStats(addresses: string[]) {
 
   return { stats, loading, error };
   
+}
+
+export function useGetAddress(){
+  const [addr, setAddr] = useState<string>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  
+  async function fetchAddr() {
+    try {
+      const [data] = await Promise.all([
+        getAddress()
+        ]);
+        setAddr(data)
+      } catch (error) {
+        setError(error as Error);
+      } finally {
+        setLoading(false);
+      }}
+      
+  fetchAddr();
+
+  return { addr, loading, error };
 }
