@@ -1,4 +1,4 @@
-export const CONTRACT_ADDRESS = '0x4Eb4e587dEbD5b3bE9E7d458C4DBDC3441277273';
+export const CONTRACT_ADDRESS = '0xfFD6059BD3Cd414a6DE1108c64A1675912C0C3CA';
 export const REWARD_TOKEN_ADDRESS = '0x1f864B2Eb9ad1c062d7419BD5e83A8A858aA81C8';
 export const NFT_CONTRACT_ADDRESS = '0x17c37D602291eB9e9f3Ba84Bf0E4D0C862278226';
 //'0x1f864B2Eb9ad1c062d7419BD5e83A8A858aA81C8';
@@ -7,4 +7,4 @@ export const NFT_CONTRACT_ADDRESS = '0x17c37D602291eB9e9f3Ba84Bf0E4D0C862278226'
 //0xAfa4d013bbf2526254718d17B02Afa8D53c5b5E3 latest 1/21/25
 export const CHAIN_ID = 80002; // Polygon Amoy testnet
 
-export const RPC_URL = 'https://rpc-amoy.polygon.technology'; // Add your RPC URL
+export const RPC_URL = 'https://rpc-amoy.polygon.technology/'; // Add your RPC URL

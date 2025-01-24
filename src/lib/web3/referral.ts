@@ -312,16 +312,10 @@ export async function getBatchUserStats(addresses: string[]) {
       abi: contractABI,
       functionName: 'batchGetUserStats',
       args: [addresses],
-    }) as [string, bigint, bigint, boolean, boolean, bigint][];
-
-    return stats.map(stats => ({
-      referrer: stats[0],
-      referralCount: stats[1],
-      totalRewards: stats[2],
-      isRegistered: stats[3],
-      isSubscribed: stats[4],
-      tokenID: stats[5],
-    }));
+    }) as UserStats[];
+    console.log("batch referral hook: ", stats);
+    
+    return stats;
     
   } catch (error) {
     console.error('Error in getBatchUserStats:', error);

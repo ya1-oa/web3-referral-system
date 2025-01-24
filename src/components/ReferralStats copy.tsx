@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Users, Award, BarChart2, TrendingUp, Share2 } from 'lucide-react';
 import { useUserStats, useUserReferrals, useReferralTree, useBatchUserStats, useGetAddress } from '../lib/web3/hooks';
@@ -22,6 +22,7 @@ interface ReferralInfo {
   parentAddr?: string;
 }
 
+
 function buildReferralTree(referrals: ReferralInfo[], batchStats: UserStats[]) {  
   const referrerMap = new Map<string, string>();
   
@@ -33,7 +34,7 @@ function buildReferralTree(referrals: ReferralInfo[], batchStats: UserStats[]) {
       );
     }
   });
-
+  console.log(referrals);
   return referrals.map(ref => ({
     ...ref,
     parentAddr: referrerMap.get(ref.addr.toLowerCase())
@@ -41,41 +42,52 @@ function buildReferralTree(referrals: ReferralInfo[], batchStats: UserStats[]) {
 }
 
 export function ReferralStats() {
+
   const { address } = useParams<{ address: string }>();
-  const { addr: currentUserAddr } = useGetAddress();
+  const {addr: addr} = useGetAddress();
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
   const lastUpdateRef = useRef<number>(0);
   const UPDATE_INTERVAL = 30000;
-  const initialLoadRef = useRef<boolean>(false);
 
+  const initialLoadRef = useRef<boolean>(false);
 
   const [treeCache, setTreeCache] = useState<{
     tree: ReferralInfo[];
     timestamp: number;
   } | null>(null);
 
-  const [groupedByLevel, setGroupedByLevel] = useState<Record<number, ReferralInfo[]>>({});
-
-  // Destructure results
-    // Hooks called at top level
-    const { stats, loading: statsLoading } = useUserStats(address || '');
-    const { referrals, loading: referralsLoading } = useUserReferrals(address || '');
-    const { tree, loading: treeLoading } = useReferralTree(address || '');
-    
-    // Memoize referral addresses ;
-    const referralAddresses = useMemo(() => 
-      tree && tree.length > 0 
-        ? tree.map(ref => ref.addr) 
-        : [], 
-      [tree]
+  if (!address) { 
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-red-500">Error: User address is not provided.</div>
+      </div>
     );
-    console.log(referralAddresses);
-  const { stats: batchStats, loading: isBatchLoading } = useBatchUserStats(referralAddresses)
+  }
+
+  if (addr && address != addr) {
+      return (
+        <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-red-500">Error: Unauthorized access to stat page.</div>
+        </div>
+      )
+    }
+
+  const { stats, loading: statsLoading } = useUserStats(address) as { stats: UserStats | null, loading: boolean };
+  const { referrals, loading: referralsLoading } = useUserReferrals(address);
+  const { tree, loading: treeLoading } = useReferralTree(address);
+  console.log("stats from UserStats: ", stats);
+  console.log("referral from userReferrals: ", referrals);
+  console.log("tree from ReferralTree", tree);
+
+  const referralAddresses = referrals && referrals.length > 0 ? referrals.map(ref => ref.referrer) : [];
+  // Always call the hook, but with empty array if no addresses
+  const { stats: batchStats, loading: isBatchLoading } = useBatchUserStats(referralAddresses.length > 0 ? referralAddresses : []);
+  console.log("BatchUserStatus data: ", batchStats);
+  const [groupedByLevel, setGroupedByLevel] = useState<Record<number, ReferralInfo[]>>({});
 
   const buildTreeMemoized = useCallback(
     debounce((tree: ReferralInfo[], batchStats: UserStats[]) => {
       const treeWithParents = buildReferralTree(tree, batchStats);
-      console.log("tree with parents: ", treeWithParents);
       const grouped = treeWithParents.reduce((acc, ref: ReferralInfo) => {
         acc[ref.level] = acc[ref.level] || [];
         acc[ref.level].push(ref);
@@ -100,6 +112,7 @@ export function ReferralStats() {
   }, [treeCache]);
 
   useEffect(() => {
+  
     return () => {
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
@@ -114,7 +127,8 @@ export function ReferralStats() {
       !statsLoading &&
       !referralsLoading &&
       !treeLoading && 
-      !isBatchLoading
+      !isBatchLoading  &&
+      shouldUpdate()
     ) {
       initialLoadRef.current = true;
       lastUpdateRef.current = Date.now();
@@ -124,6 +138,7 @@ export function ReferralStats() {
       updateTimeoutRef.current = setTimeout(() => {
         buildTreeMemoized(tree, batchStats)
       }, UPDATE_INTERVAL);
+
     }
   }, [
     tree,
@@ -132,6 +147,8 @@ export function ReferralStats() {
     referralsLoading,
     treeLoading,
     isBatchLoading,
+    shouldUpdate,
+    buildTreeMemoized
   ])
   
   if (statsLoading || referralsLoading || treeLoading || isBatchLoading) {
@@ -142,32 +159,20 @@ export function ReferralStats() {
     );
   }
   
-  const dashboardStats = {
-    totalReferrals: stats?.referralCount || 0,
-    totalRewards: Number(stats?.totalRewards || 0),
-    activeTraders: Object.values(groupedByLevel).reduce((total, level) => 
-      total + level.filter(ref => Number(ref.rewardsEarned) > 0).length, 0
-    ),
-    averageROI: stats?.totalRewards && stats.referralCount 
-      ? (Number(stats.totalRewards) % 18  / Number(stats.referralCount)).toFixed(2)
-      : 0
-  };
-  // Validate render conditions
-  if (!address) { 
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center text-red-500">Error: User address is not provided.</div>
-      </div>
-    );
-  }
+  // Replace the dashboardStats object with calculated values from the tree and stats
+const dashboardStats = {
+  totalReferrals: stats?.referralCount || 0,
+  totalRewards: Number(stats?.totalRewards || 0),
+  // Count total active traders across all levels
+  activeTraders: Object.values(groupedByLevel).reduce((total, level) => 
+    total + level.filter(ref => Number(ref.rewardsEarned) > 0).length, 0
+  ),
+  // Calculate average rewards per referral
+  averageROI: stats?.totalRewards && stats.referralCount 
+    ? (Number(stats.totalRewards) / Number(stats.referralCount)).toFixed(2)
+    : 0
+};
 
-  if (currentUserAddr && address !== currentUserAddr) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center text-red-500">Error: Unauthorized access to stat page.</div>
-      </div>
-    );
-  }
   return (
     <div className="container mx-auto px-4 py-8">
       <SubscriptionNFT userAddress={address} />

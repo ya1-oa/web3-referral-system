@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo} from 'react';
 import { getUserStats, getUserReferrals, getReferralTree, getNFTTokenURI, getNFTSubscriptionStatus, getNFTExpiryTime, getBatchUserStats, getAddress } from './referral';
 
 interface UserStats {
@@ -16,58 +16,65 @@ interface ReferralInfo {
   rewardsEarned: bigint;
 }
 
+
 export function useUserStats(address: string) {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
+  // Memoize the fetch function to prevent unnecessary re-creations
+  const fetchStatsCallback = useCallback(async () => {
     if (!address) {
       setLoading(false);
-      return;
+      return null;
     }
 
-    async function fetchStats() {
-      try {
-        const data = await getUserStats(address);
-        setStats(data);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const data = await getUserStats(address);
+      return data;
+    } catch (err) {
+      setError(err as Error);
+      return null;
     }
-
-    fetchStats();
   }, [address]);
 
-  return { stats, loading, error };
-}
+  // Use useMemo to cache the result based on address
+  const memoizedStats = useMemo(() => {
+    // This will trigger the fetch when the address changes
+    fetchStatsCallback().then(fetchedStats => {
+      setStats(fetchedStats);
+      setLoading(false);
+    });
 
+    return stats;
+  }, [address, fetchStatsCallback]);
+
+  return { stats: memoizedStats, loading, error };
+}
 export function useUserReferrals(address: string) {
   const [referrals, setReferrals] = useState<UserStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
+  const fetchReferrals = useCallback(async () => {
     if (!address) {
       setLoading(false);
       return;
     }
 
-    async function fetchReferrals() {
-      try {
-        const data = await getUserReferrals(address);
-        setReferrals(data);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const data = await getUserReferrals(address);
+      setReferrals(data);
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setLoading(false);
     }
-
-    fetchReferrals();
   }, [address]);
+
+  useEffect(() => {
+    fetchReferrals();
+  }, [fetchReferrals]);
 
   return { referrals, loading, error };
 }
@@ -77,29 +84,28 @@ export function useReferralTree(address: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
+  const fetchTree = useCallback(async () => {
     if (!address) {
       setLoading(false);
       return;
     }
 
-    async function fetchTree() {
-      try {
-        const data = await getReferralTree(address);
-        setTree(data);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const data = await getReferralTree(address);
+      setTree(data);
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setLoading(false);
     }
-
-    fetchTree();
   }, [address]);
+
+  useEffect(() => {
+    fetchTree();
+  }, [fetchTree]);
 
   return { tree, loading, error };
 }
-
 export function useSubscriptionNFT(address: string) {
   const [nftData, setNftData] = useState<{
     timeUntilExpiry: bigint;
@@ -136,13 +142,12 @@ export function useSubscriptionNFT(address: string) {
     }
 
     fetchNFTData();
-    // Poll every minute to check subscription status
-    const interval = setInterval(fetchNFTData, 60000);
-    return () => clearInterval(interval);
+
   }, [address]);
 
   return { nftData, loading, error };
 }
+
 
 
 export function useBatchUserStats(addresses: string[]) {
@@ -150,44 +155,46 @@ export function useBatchUserStats(addresses: string[]) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const [ data ] = await Promise.all([
+        getBatchUserStats(addresses)
+      ]);
+      console.log(data);
+      setStats(data);
+    } catch (error) {
+      setError(error as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [addresses]);
 
-    async function fetchStats() {
-      try {
-        const [data] = await Promise.all([
-          getBatchUserStats(addresses)
-          ]);
-
-          setStats(data)
-        } catch (error) {
-          setError(error as Error);
-        } finally {
-          setLoading(false);
-        }}
-
-  fetchStats();
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   return { stats, loading, error };
-  
 }
 
-export function useGetAddress(){
+export function useGetAddress() {
   const [addr, setAddr] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
-  async function fetchAddr() {
+  const fetchAddr = useCallback(async () => {
     try {
-      const [data] = await Promise.all([
-        getAddress()
-        ]);
-        setAddr(data)
-      } catch (error) {
-        setError(error as Error);
-      } finally {
-        setLoading(false);
-      }}
-      
-  fetchAddr();
+      const [data] = await Promise.all([getAddress()]);
+      setAddr(data);
+    } catch (error) {
+      setError(error as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // Empty dependency array since this seems like a one-time fetch
+  
+  useEffect(() => {
+    fetchAddr();
+  }, [fetchAddr]);
 
   return { addr, loading, error };
 }
