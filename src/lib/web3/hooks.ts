@@ -17,39 +17,40 @@ interface ReferralInfo {
 }
 
 
-export function useUserStats(address: string) {
+export function useUserStats(address: string | null) {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Memoize the fetch function to prevent unnecessary re-creations
-  const fetchStatsCallback = useCallback(async () => {
+  // Fetch stats function
+  const fetchStats = useCallback(async () => {
     if (!address) {
       setLoading(false);
-      return null;
+      setStats(null);
+      return;
     }
+
+    setLoading(true);
+    setError(null);
 
     try {
       const data = await getUserStats(address);
-      return data;
+      setStats(data);
     } catch (err) {
       setError(err as Error);
-      return null;
+      setStats(null);
+    } finally {
+      setLoading(false);
     }
   }, [address]);
 
-  // Use useMemo to cache the result based on address
-  const memoizedStats = useMemo(() => {
-    // This will trigger the fetch when the address changes
-    fetchStatsCallback().then(fetchedStats => {
-      setStats(fetchedStats);
-      setLoading(false);
-    });
+  // Fetch stats when address changes
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
-    return stats;
-  }, [address, fetchStatsCallback]);
 
-  return { stats: memoizedStats, loading, error };
+  return { stats, loading, error };
 }
 export function useUserReferrals(address: string) {
   const [referrals, setReferrals] = useState<UserStats[]>([]);
@@ -106,7 +107,7 @@ export function useReferralTree(address: string) {
 
   return { tree, loading, error };
 }
-export function useSubscriptionNFT(address: string) {
+export function useSubscriptionNFT(address: string | null) {
   const [nftData, setNftData] = useState<{
     timeUntilExpiry: bigint;
     isSubscribed: boolean;

@@ -3,7 +3,7 @@ import { registerUser } from '../lib/web3/referral';
 import { Link, Navigate } from 'react-router-dom';
 
 interface Props {
-  userAddress: string;
+  userAddress: string | null;
 }
 
 export function ReferralRegistration({ userAddress }: Props) {

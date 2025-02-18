@@ -12,12 +12,13 @@ interface ISubcriptionNFT is IERC721 {
     function mint(address to) external returns (uint256);
     function renewSubscription(uint256 tokenId ) external;
     function timeUntilExpired(uint256 tokenId) external view returns (uint256);
-}   
+}
 
 contract Referral is Ownable, ReentrancyGuard {
 
     IERC20 public rewardToken;
     ISubcriptionNFT public subscriptionNFT;
+    uint256 private accumulatedProfits;
 
     using Strings for uint256;
 
@@ -111,16 +112,6 @@ contract Referral is Ownable, ReentrancyGuard {
         return timeLeft > 0;
     }
 
-    function payoutProfit() external onlyOwner nonReentrant {
-        require(payout != address(0), "Payout address not set");
-        
-        uint256 balance = rewardToken.balanceOf(address(this));
-        require(balance > 0, "No balance to payout");
-        
-        require(rewardToken.transfer(payout, balance), "Payout transfer failed");
-        emit Payout(payout, balance);
-    }
-
     function updateSubscriptionStatus(address user) public {
         require(users[user].isRegistered, "User not registered");
         
@@ -149,9 +140,20 @@ contract Referral is Ownable, ReentrancyGuard {
     }
     
     function updatePayout(address payoutAddress) external onlyOwner {
+        require(payoutAddress != address(0), "Invalid payout address");
         payout = payoutAddress;
     }
 
+    function payoutProfit() external onlyOwner nonReentrant {
+        require(payout != address(0), "Payout address not set");
+        
+        uint256 balance = rewardToken.balanceOf(address(this));
+        require(balance > 0, "No balance to payout");
+        
+        require(rewardToken.transfer(payout, balance), "Payout transfer failed");
+        emit Payout(payout, balance);
+    }
+    
     function updateSubscription(address user, bool _newSubscription) external onlyOwner {
         users[user].isSubscribed = _newSubscription;
     }
@@ -177,7 +179,7 @@ contract Referral is Ownable, ReentrancyGuard {
         }
     
     return userStats;
-    }
+}
     
     function getUserStats(address user) external view returns (
         address referrer,

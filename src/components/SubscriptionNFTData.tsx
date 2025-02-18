@@ -32,40 +32,24 @@ export function SubscriptionNFT({ userAddress }: Props) {
   const timeLeft = nftData.timeUntilExpiry
 
   return (
-    <div className="bg-[#112A45] border border-cyan-900/50 rounded-xl p-6">
+    <div>
       <h3 className="text-xl font-bold text-white mb-4">Subscription Status</h3>
       <div className="flex items-center space-x-6">
-        {nftData.tokenURI && (
-          <img 
-            src={nftData.tokenURI} 
-            alt="Subscription NFT" 
-            className="w-32 h-32 rounded-lg"
-          />
-        )}
         <div>
           <div className={`text-lg font-medium mb-2 ${
             nftData.isSubscribed ? 'text-green-400' : 'text-red-400'
           }`}>
             {nftData.isSubscribed ? 'Active' : 'Expired'}
           </div>
-          {nftData.isSubscribed && (
+          {nftData && (
             <div className="text-gray-300">
-              Expires in: {timeLeft.toString()} seconds
+              Expires in: {Number(nftData.timeUntilExpiry) / 86400} days
             </div>
           )}
         </div>
       </div>
       <div>
-        {!nftData.isSubscribed && (
-          <button
-            onClick={handleRenew}
-            disabled={renewing}
-            className="mt-4 bg-cyan-500 text-white px-4 py-2 rounded-lg hover:bg-cyan-400 disabled:opacity-50"
-          >
-            {renewing ? 'Renewing...' : 'Renew Subscription'}
-          </button>
-        )}
       </div>
     </div>
   );
-} 
+}

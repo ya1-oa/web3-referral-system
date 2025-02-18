@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Users, Award, BarChart2, TrendingUp, Share2 } from 'lucide-react';
+import { Users, Award, BarChart2, TrendingUp, Share2, AlertCircle } from 'lucide-react';
 import { useUserStats, useUserReferrals, useReferralTree, useBatchUserStats, useGetAddress } from '../lib/web3/hooks';
 import { formatReward, shortenAddress } from '../lib/web3/utils';
-import { SubscriptionNFT } from './SubscriptionNFT';
+import { SubscriptionNFT } from './SubscriptionNFTData';
 import debounce from 'lodash/debounce';
+import { add } from 'lodash';
 
 interface UserStats {
   referrer: string;
@@ -21,6 +22,7 @@ interface ReferralInfo {
   rewardsEarned: bigint;
   parentAddr?: string;
 }
+
 
 function buildReferralTree(referrals: ReferralInfo[], batchStats: UserStats[]) {  
   const referrerMap = new Map<string, string>();
@@ -40,14 +42,20 @@ function buildReferralTree(referrals: ReferralInfo[], batchStats: UserStats[]) {
   }));
 }
 
-export function ReferralStats() {
-  const { address } = useParams<{ address: string }>();
+interface ReferralStatsProps{
+    stats: UserStats | null;
+    address: string | null;
+}
+
+export function ReferralStats({stats, address}: ReferralStatsProps)  {
   const { addr: currentUserAddr } = useGetAddress();
   const updateTimeoutRef = useRef<NodeJS.Timeout>();
   const lastUpdateRef = useRef<number>(0);
   const UPDATE_INTERVAL = 30000;
   const initialLoadRef = useRef<boolean>(false);
 
+  console.log("stats:", stats);
+  console.log("address:", address);
 
   const [treeCache, setTreeCache] = useState<{
     tree: ReferralInfo[];
@@ -58,8 +66,21 @@ export function ReferralStats() {
 
   // Destructure results
     // Hooks called at top level
-    const { stats, loading: statsLoading } = useUserStats(address || '');
-    const { referrals, loading: referralsLoading } = useUserReferrals(address || '');
+    if (!address || !stats) {
+      return (
+        <div className="container mx-auto px-4 py-8">
+          <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-4">
+            <div className="flex items-center space-x-2 text-red-400">
+              <AlertCircle className="w-5 h-5" />
+              <span>No address/stats found yet.</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
+    //const { stats, loading: statsLoading } = useUserStats(address) as { stats: UserStats | null, loading: boolean };
     const { tree, loading: treeLoading } = useReferralTree(address || '');
     
     // Memoize referral addresses ;
@@ -81,6 +102,7 @@ export function ReferralStats() {
         acc[ref.level].push(ref);
         return acc;
       }, {} as Record<number, ReferralInfo[]>);
+      console.log(grouped);
       setGroupedByLevel(grouped);
       setTreeCache({
         tree: treeWithParents,
@@ -111,16 +133,14 @@ export function ReferralStats() {
     if (
       tree &&
       batchStats &&
-      !statsLoading &&
-      !referralsLoading &&
-      !treeLoading && 
+      stats &&
+      !treeLoading &&
       !isBatchLoading
     ) {
       initialLoadRef.current = true;
       lastUpdateRef.current = Date.now();
 
       buildTreeMemoized(tree, batchStats);
-
       updateTimeoutRef.current = setTimeout(() => {
         buildTreeMemoized(tree, batchStats)
       }, UPDATE_INTERVAL);
@@ -128,13 +148,12 @@ export function ReferralStats() {
   }, [
     tree,
     batchStats,
-    statsLoading,
-    referralsLoading,
     treeLoading,
+    stats,
     isBatchLoading,
   ])
   
-  if (statsLoading || referralsLoading || treeLoading || isBatchLoading) {
+  if (treeLoading && isBatchLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center text-white">Loading...</div>
@@ -152,6 +171,8 @@ export function ReferralStats() {
       ? (Number(stats.totalRewards) % 18  / Number(stats.referralCount)).toFixed(2)
       : 0
   };
+
+  console.log(groupedByLevel);
   // Validate render conditions
   if (!address) { 
     return (
@@ -168,12 +189,20 @@ export function ReferralStats() {
       </div>
     );
   }
-  return (
+  
+  console.log({
+    address,
+    treeLoading,
+    isBatchLoading,
+    tree,
+    batchStats,
+    stats
+  });
+
+  if (!treeLoading && !isBatchLoading && tree && batchStats && stats) { return (
     <div className="container mx-auto px-4 py-8">
-      <SubscriptionNFT userAddress={address} />
+
       <h1 className="text-3xl font-bold text-white mb-8">Research Dashboard</h1>
-      
-      
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-[#112A45] border border-cyan-900/50 rounded-xl p-6">
@@ -204,15 +233,10 @@ export function ReferralStats() {
           <div className="text-2xl font-bold text-white mb-1">{dashboardStats.activeTraders}</div>
           <div className="text-gray-400 text-sm">Active Traders</div>
         </div>
-
         <div className="bg-[#112A45] border border-cyan-900/50 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <TrendingUp className="w-6 h-6 text-cyan-400" />
-            <span className="text-xs text-cyan-400 font-mono">PERFORMANCE</span>
-          </div>
-          <div className="text-2xl font-bold text-white mb-1">{dashboardStats.averageROI}%</div>
-          <div className="text-gray-400 text-sm">Average ROI</div>
+            <SubscriptionNFT userAddress={address} />
         </div>
+          
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -255,12 +279,12 @@ export function ReferralStats() {
             <BarChart2 className="w-5 h-5 text-cyan-400" />
           </div>
           <div className="space-y-4">
-            {referrals?.map((referral: UserStats) => (
-              <div key={referral.referrer} className="flex items-center justify-between py-3 border-b border-cyan-900/30">
-                <div className="text-white font-medium">{shortenAddress(referral.referrer)}</div>
+            {groupedByLevel[1]?.map((ref) => (
+              <div key={ref.addr} className="flex items-center justify-between py-3 border-b border-cyan-900/30">
+                <div className="text-white font-medium">{shortenAddress(ref.addr)}</div>
                 <div className="text-cyan-400">
-                  {groupedByLevel[1]?.find(ref => ref.addr.toLowerCase() === referral.referrer.toLowerCase())?.rewardsEarned 
-                    ? formatReward(groupedByLevel[1].find(ref => ref.addr.toLowerCase() === referral.referrer.toLowerCase())!.rewardsEarned)
+                  {groupedByLevel[1]?.find(ref => ref.addr.toLowerCase() === ref.addr.toLowerCase())?.rewardsEarned 
+                    ? formatReward(groupedByLevel[1].find(ref => ref.addr.toLowerCase() === ref.addr.toLowerCase())!.rewardsEarned)
                     : "0"} Tokens
                 </div>
               </div>
@@ -271,5 +295,5 @@ export function ReferralStats() {
     </div>
   );
 }
-
+}
 export default ReferralStats;

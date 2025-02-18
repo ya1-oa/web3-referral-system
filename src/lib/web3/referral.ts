@@ -141,6 +141,7 @@ interface ReferralInfo {
   rewardsEarned: bigint;
 }
 
+
 export async function getReferralTree(address: string): Promise<ReferralInfo[]> {
   try {
     const data = await publicClient.readContract({
@@ -163,7 +164,7 @@ export async function getReferralTree(address: string): Promise<ReferralInfo[]> 
   }
 }
 
-export async function getNFTExpiryTime(address: string) {
+export async function getNFTExpiryTime(address: string | null) {
   const tokenId = await publicClient.readContract({
     address: CONTRACT_ADDRESS,
     abi: contractABI,
@@ -187,7 +188,7 @@ export async function getNFTExpiryTime(address: string) {
   }
 }
 
-export async function getNFTSubscriptionStatus(address: string) {
+export async function getNFTSubscriptionStatus(address: string | null) {
   try {
     const data = await publicClient.readContract({
       address: CONTRACT_ADDRESS,
@@ -204,7 +205,7 @@ export async function getNFTSubscriptionStatus(address: string) {
 }
 
 // call this on the NFT contract
-export async function getNFTTokenURI(address: string) {
+export async function getNFTTokenURI(address: string | null) {
   try {
     const tokenId = await publicClient.readContract({
       address: CONTRACT_ADDRESS,
