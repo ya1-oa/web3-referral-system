@@ -1,5 +1,3 @@
-import React from 'react'
-import { Header } from './Header'
 import SubscriptionPage from './SubscriptionPage'
 
 interface UserStats {

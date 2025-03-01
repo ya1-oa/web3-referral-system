@@ -1,5 +1,3 @@
-import React from 'react'
-
 interface UserStats {
   referrer: string;
   referralCount: bigint;
@@ -15,6 +13,9 @@ interface SettingsProps {
 }
 
 function Settings({stats, address}:SettingsProps) {
+  if (stats && address) {
+    
+  }
   return (
     <div>Settings</div>
   )

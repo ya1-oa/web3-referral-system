@@ -1,4 +1,3 @@
-import React from 'react'
 import ModulesPage from './Modules'
 
 function MyModules() {

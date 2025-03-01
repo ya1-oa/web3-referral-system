@@ -3,24 +3,17 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 interface ISubcriptionNFT is IERC721 {
     function mint(address to) external returns (uint256);
-    function renewSubscription(uint256 tokenId ) external;
+    function renewSubscription(uint256 tokenId) external;
     function timeUntilExpired(uint256 tokenId) external view returns (uint256);
-}   
+}
 
-contract Referral is Ownable, ReentrancyGuard {
-
-    IERC20 public rewardToken;
-    ISubcriptionNFT public subscriptionNFT;
-
-    using Strings for uint256;
-
+interface IReferralStorage {
     struct User {
         address referrer;
         uint256 referralCount;
@@ -30,53 +23,86 @@ contract Referral is Ownable, ReentrancyGuard {
         uint256 tokenID;
     }
     
+    function setUser(address userAddress, User memory user) external;
+    function getUser(address userAddress) external view returns (User memory);
+    function addReferral(address referrer, address referee) external;
+    function getReferrals(address referrer) external view returns (address[] memory);
+}
+
+contract Referral is Ownable, ReentrancyGuard {
+    IERC20 public rewardToken;
+    ISubcriptionNFT public subscriptionNFT;
+    IReferralStorage public referralStorage;
+    
+    using Strings for uint256;
+    
     uint256[3] public referralRewards = [500, 300, 100]; // 5%, 3%, 1%
     uint256 public registrationAmount = 100 * 10**18; // 100 tokens
     uint256 public subscriptionAmount = 50 * 10**18;
     uint256 public subscriptionDuration = 3 minutes;
     
-    mapping(address => User) public users;
-    mapping(address => address[]) public referrals;
-    
     address payout;
+    bool public storageConnected = false;
 
     event UserRegistered(address indexed user, address indexed referrer);
     event ReferralRewardPaid(address indexed user, address indexed referrer, uint256 amount, uint256 level);
     event SubscriptionRenewed(address indexed user, uint256 indexed tokenId, uint256 expiryTime);
     event UserDeactivated(address indexed user, uint256 indexed tokenId);
     event Payout(address payout, uint256 balance);
+    event ReferralStorageConnected(address storageContract);
     
     constructor(address _rewardToken, address _subscriptionNFT) Ownable(msg.sender) {
         rewardToken = IERC20(_rewardToken);
         subscriptionNFT = ISubcriptionNFT(_subscriptionNFT);
     }
     
+    function setReferralStorage(address _referralStorage) external onlyOwner {
+        require(_referralStorage != address(0), "Invalid storage address");
+        referralStorage = IReferralStorage(_referralStorage);
+        storageConnected = true;
+        emit ReferralStorageConnected(_referralStorage);
+    }
+    
     function register(address referrer) external nonReentrant {
-        require(!users[msg.sender].isRegistered, "Already registered");
+        require(storageConnected, "Storage not connected");
+        IReferralStorage.User memory user = referralStorage.getUser(msg.sender);
+        require(!user.isRegistered, "Already registered");
         require(referrer != msg.sender, "Cannot refer yourself");
-        //transfer register amount
+        
+        // Transfer register amount
         require(rewardToken.transferFrom(msg.sender, address(this), registrationAmount), "Transfer failed");
         uint256 tokenId = subscriptionNFT.mint(msg.sender);
 
-        users[msg.sender].isRegistered = true;
-        users[msg.sender].referrer = referrer;
-        users[msg.sender].isSubscribed = true;
-        users[msg.sender].tokenID = tokenId;
+        IReferralStorage.User memory newUser = IReferralStorage.User({
+            referrer: referrer,
+            referralCount: 0,
+            totalRewards: 0,
+            isRegistered: true,
+            isSubscribed: true,
+            tokenID: tokenId
+        });
         
-        if (referrer != address(0) && users[referrer].isRegistered) {
-            users[referrer].referralCount++;
-            referrals[referrer].push(msg.sender);
-            processReferralRewards(msg.sender, registrationAmount);
+        referralStorage.setUser(msg.sender, newUser);
+        
+        if (referrer != address(0)) {
+            IReferralStorage.User memory referrerUser = referralStorage.getUser(referrer);
+            if (referrerUser.isRegistered) {
+                referrerUser.referralCount++;
+                referralStorage.setUser(referrer, referrerUser);
+                referralStorage.addReferral(referrer, msg.sender);
+                processReferralRewards(msg.sender, registrationAmount);
+            }
         }
         
         emit UserRegistered(msg.sender, referrer);
     }
 
-
     function subscribe(address user) external nonReentrant {
-        require(users[user].isRegistered, "User is not registered");
+        require(storageConnected, "Storage not connected");
+        IReferralStorage.User memory userData = referralStorage.getUser(user);
+        require(userData.isRegistered, "User is not registered");
         
-        uint256 tokenId = users[user].tokenID;
+        uint256 tokenId = userData.tokenID;
         require(tokenId != 0, "No NFT found");
         require(subscriptionNFT.ownerOf(tokenId) == user, "Not NFT owner");
         
@@ -94,7 +120,8 @@ contract Referral is Ownable, ReentrancyGuard {
         
         // Then renew subscription
         try subscriptionNFT.renewSubscription(tokenId) {
-            users[user].isSubscribed = true;
+            userData.isSubscribed = true;
+            referralStorage.setUser(user, userData);
             processReferralRewards(user, subscriptionAmount);
             emit SubscriptionRenewed(user, tokenId, block.timestamp + subscriptionDuration);
         } catch Error(string memory reason) {
@@ -103,9 +130,12 @@ contract Referral is Ownable, ReentrancyGuard {
     }
 
     function checkSubscriptionStatus(address user) public view returns (bool) {
-        if (!users[user].isRegistered) return false;
+        if (!storageConnected) return false;
         
-        uint256 tokenId = users[user].tokenID;
+        IReferralStorage.User memory userData = referralStorage.getUser(user);
+        if (!userData.isRegistered) return false;
+        
+        uint256 tokenId = userData.tokenID;
         uint256 timeLeft = subscriptionNFT.timeUntilExpired(tokenId);
         
         return timeLeft > 0;
@@ -122,29 +152,39 @@ contract Referral is Ownable, ReentrancyGuard {
     }
 
     function updateSubscriptionStatus(address user) public {
-        require(users[user].isRegistered, "User not registered");
+        require(storageConnected, "Storage not connected");
+        IReferralStorage.User memory userData = referralStorage.getUser(user);
+        require(userData.isRegistered, "User not registered");
         
         bool isSubscribed = checkSubscriptionStatus(user);
-        if (users[user].isSubscribed != isSubscribed) {
-            users[user].isSubscribed = isSubscribed;
+        if (userData.isSubscribed != isSubscribed) {
+            userData.isSubscribed = isSubscribed;
+            referralStorage.setUser(user, userData);
             if (!isSubscribed) {
-                emit UserDeactivated(user, users[user].tokenID);
+                emit UserDeactivated(user, userData.tokenID);
             }
         }
     }
 
     function processReferralRewards(address user, uint256 amount) internal {
-        address currentReferrer = users[user].referrer;
+        if (!storageConnected) return;
+        
+        IReferralStorage.User memory userData = referralStorage.getUser(user);
+        address currentReferrer = userData.referrer;
         updateSubscriptionStatus(user);
+        
         for (uint256 i = 0; i < referralRewards.length && currentReferrer != address(0); i++) {
-            if (users[currentReferrer].isSubscribed) {
+            IReferralStorage.User memory referrerData = referralStorage.getUser(currentReferrer);
+            
+            if (referrerData.isSubscribed) {
                 uint256 reward = (amount * referralRewards[i]) / 10000;
-                users[currentReferrer].totalRewards += reward;
+                referrerData.totalRewards += reward;
                 
+                referralStorage.setUser(currentReferrer, referrerData);
                 require(rewardToken.transfer(currentReferrer, reward), "Reward transfer failed");
                 emit ReferralRewardPaid(user, currentReferrer, reward, i + 1);
             }
-            currentReferrer = users[currentReferrer].referrer;
+            currentReferrer = referrerData.referrer;
         }
     }
     
@@ -153,7 +193,10 @@ contract Referral is Ownable, ReentrancyGuard {
     }
 
     function updateSubscription(address user, bool _newSubscription) external onlyOwner {
-        users[user].isSubscribed = _newSubscription;
+        require(storageConnected, "Storage not connected");
+        IReferralStorage.User memory userData = referralStorage.getUser(user);
+        userData.isSubscribed = _newSubscription;
+        referralStorage.setUser(user, userData);
     }
 
     function updateSubscriptionDuration(uint256 duration) external onlyOwner {
@@ -168,15 +211,17 @@ contract Referral is Ownable, ReentrancyGuard {
         registrationAmount = _newAmount;
     }
     
-     function getUserReferrals(address user) external view returns (User[] memory) {
-        address[] memory userAddresses = referrals[user];
-        User[] memory userStats = new User[](userAddresses.length);
+    function getUserReferrals(address user) external view returns (IReferralStorage.User[] memory) {
+        require(storageConnected, "Storage not connected");
+        
+        address[] memory userAddresses = referralStorage.getReferrals(user);
+        IReferralStorage.User[] memory userStats = new IReferralStorage.User[](userAddresses.length);
     
         for (uint i = 0; i < userAddresses.length; i++) {
-        userStats[i] = users[userAddresses[i]];
+            userStats[i] = referralStorage.getUser(userAddresses[i]);
         }
     
-    return userStats;
+        return userStats;
     }
     
     function getUserStats(address user) external view returns (
@@ -187,7 +232,9 @@ contract Referral is Ownable, ReentrancyGuard {
         bool isSubscribed,
         uint256 tokenID
     ) {
-        User memory userInfo = users[user];
+        require(storageConnected, "Storage not connected");
+        
+        IReferralStorage.User memory userInfo = referralStorage.getUser(user);
         
         return (
             userInfo.referrer,
@@ -208,17 +255,19 @@ contract Referral is Ownable, ReentrancyGuard {
     function getReferralTree(address user) external view returns (
         ReferralInfo[] memory downline
     ) {
+        require(storageConnected, "Storage not connected");
+        
         // Calculate total possible size (all 3 levels)
         uint256 totalSize = 0;
-        address[] memory level1 = referrals[user];
+        address[] memory level1 = referralStorage.getReferrals(user);
         totalSize += level1.length;
         
         for (uint i = 0; i < level1.length; i++) {
-            address[] memory level2 = referrals[level1[i]];
+            address[] memory level2 = referralStorage.getReferrals(level1[i]);
             totalSize += level2.length;
             
             for (uint j = 0; j < level2.length; j++) {
-                totalSize += referrals[level2[j]].length;
+                totalSize += referralStorage.getReferrals(level2[j]).length;
             }
         }
         
@@ -236,7 +285,7 @@ contract Referral is Ownable, ReentrancyGuard {
             currentIndex++;
             
             // Level 2 (3% earnings)
-            address[] memory level2 = referrals[addr];
+            address[] memory level2 = referralStorage.getReferrals(addr);
             for (uint j = 0; j < level2.length; j++) {
                 address addr2 = level2[j];
                 downline[currentIndex] = ReferralInfo(
@@ -247,7 +296,7 @@ contract Referral is Ownable, ReentrancyGuard {
                 currentIndex++;
                 
                 // Level 3 (1% earnings)
-                address[] memory level3 = referrals[addr2];
+                address[] memory level3 = referralStorage.getReferrals(addr2);
                 for (uint k = 0; k < level3.length; k++) {
                     downline[currentIndex] = ReferralInfo(
                         level3[k],
@@ -262,14 +311,17 @@ contract Referral is Ownable, ReentrancyGuard {
         return downline;
     }
 
-    function batchGetUserStats(address[] calldata userAddresses) external view returns (User[] memory userStats) {
-        userStats = new User[](userAddresses.length);
+    function batchGetUserStats(address[] calldata userAddresses) external view returns (IReferralStorage.User[] memory userStats) {
+        require(storageConnected, "Storage not connected");
+        
+        userStats = new IReferralStorage.User[](userAddresses.length);
         
         for (uint i = 0; i < userAddresses.length; i++) {
             address userAddress = userAddresses[i];
-            User memory userInfo = users[userAddress];
+            IReferralStorage.User memory userInfo = referralStorage.getUser(userAddress);
 
-            userStats[i] = User({
+            // Make a copy with the correct subscription status
+            userStats[i] = IReferralStorage.User({
                 referrer: userInfo.referrer,
                 referralCount: userInfo.referralCount,
                 totalRewards: userInfo.totalRewards,

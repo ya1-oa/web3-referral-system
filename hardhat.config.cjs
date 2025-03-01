@@ -5,15 +5,14 @@ require('dotenv').config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  defaultNetwork: "polygon_amoy",
+  defaultNetwork: "polygon",
   networks: {
     hardhat: {
     },
-    polygon_amoy: {
-      url: "https://rpc-amoy.polygon.technology",
-      accounts: [process.env.POLYGON_AMMOY_PRIVATE_KEY],
-      gasPrice: "auto",
-      gas: 2100000,
+    polygon: {
+      url: "https://polygon.llamarpc.com",
+      accounts: [process.env.POLYGON_PRIVATE_KEY],
+      gasPrice: 2000000000,
     }
   },
   etherscan: {

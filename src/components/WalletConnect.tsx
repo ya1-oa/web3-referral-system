@@ -1,7 +1,6 @@
 import { useState, Dispatch, SetStateAction } from 'react';
-import { getWalletClient, switchToPolygonAmoy } from '../lib/web3/contract';
+import { getWalletClient, switchToPolygon } from '../lib/web3/contract';
 import { 
-  Menu, 
   Settings, 
   Users, 
   Wallet,
@@ -33,7 +32,7 @@ export function WalletConnect({ onConnect }: WalletConnectProps) {
     setLoading(true);
     try {
       await window.ethereum.request({ method: 'eth_requestAccounts' });
-      await switchToPolygonAmoy();
+      await switchToPolygon();
       
       const walletClient = getWalletClient();
       const [addr] = await walletClient.getAddresses();

@@ -1,14 +1,11 @@
 import { ReferralDashboard } from './components/ReferralDashboard';
 import { Header } from './components/Header';
-import { useState, useEffect } from 'react';
-import { switchToPolygonAmoy } from './lib/web3/contract';
-import { getUserStats } from './lib/web3/referral';
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AlertCircle, Home, Settings } from 'lucide-react';
+import { useState } from 'react';
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AlertCircle} from 'lucide-react';
 import { ReferralStats } from './components/ReferralStats';
 import { useUserStats } from './lib/web3/hooks';
 import TradingUpdates from './components/TradingUpdates';
-import Modules from './components/Modules';
 import { ReferralRegistration } from './components/ReferralRegistration';
 import SubPage from './components/SubPage';
 import SettingsProp from './components/SettingsProp';
@@ -16,15 +13,8 @@ import GetWallet from './components/GetWallet';
 import ModulesPage from './components/Modules'
 import MyModules from './components/MyModules';
 import ModulesViewer from './components/ModuleViewer';
-
-interface UserStats {
-  referrer: string;
-  referralCount: bigint;
-  totalRewards: bigint;
-  isRegistered: boolean;
-  isSubscribed: boolean;
-  tokenID: bigint;
-}
+import { modules as initialModules } from './modulesData';
+import { ModulesProvider } from './ModuleContext';
 
 function App() {
   const [address, setAddress] = useState<string | null>(null);
@@ -74,8 +64,9 @@ function App() {
   return (
     <div className="min-h-screen bg-[#0A1929] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CiAgPHBhdGggZD0iTTAgMGg2MHY2MEgweiIgZmlsbD0ibm9uZSIvPgogIDxwYXRoIGQ9Ik0zMCAzMG0tMjggMGEyOCAyOCAwIDEgMCA1NiAwYTI4IDI4IDAgMSAwLTU2IDB6IiBzdHJva2U9IiMxMTJBNDUiIGZpbGw9Im5vbmUiLz4KPC9zdmc+')] bg-repeat">
       <main>
-        <Header onConnectIsAddress={setAddress} stats={stats} currentAddress={address} />
+        <Header onConnectIsAddress={setAddress} currentAddress={address} />
           <Routes>
+          <ModulesProvider initialModules={initialModules}>
             <Route path="/" element= {<ReferralDashboard stats={stats} address={address} />} />
             <Route path="/register" element= {
               <ProtectedRoute>
@@ -94,12 +85,13 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="/updates" element= {<TradingUpdates stats={stats} address={address}/>} />
+            <Route path="/updates" element= {<TradingUpdates />} /> 
             <Route path="/modules" element= {<ModulesPage/>} />
-            <Route path="/module/:moduleId" element ={<ModulesViewer stats={stats} address={address} />} />
+            <Route path="/module/:moduleId" element ={<ModulesViewer />} />
             <Route path="/my-modules" element={<MyModules />} />
             <Route path="/settings" element= {<SettingsProp stats={stats} address={address}/>} />
             <Route path="/getwallet" element= {<GetWallet stats={stats} address={address}/>} />
+            </ModulesProvider>
           </Routes>
 
       </main>

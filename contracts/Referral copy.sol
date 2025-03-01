@@ -14,7 +14,7 @@ interface ISubcriptionNFT is IERC721 {
     function timeUntilExpired(uint256 tokenId) external view returns (uint256);
 }
 
-contract Referral is Ownable, ReentrancyGuard {
+contract ReferralCopy is Ownable, ReentrancyGuard {
 
     IERC20 public rewardToken;
     ISubcriptionNFT public subscriptionNFT;

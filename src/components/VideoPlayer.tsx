@@ -1,12 +1,30 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 interface VideoPlayerProps {
   videoHash: string;
   fallbackUrl: string;
+  onComplete?: () => void;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoHash, fallbackUrl }) => {
-  // This component can be extended to handle IPFS video playback
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoHash, fallbackUrl, onComplete }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    
+    if (videoElement && onComplete) {
+      const handleEnded = () => {
+        onComplete();
+      };
+      
+      videoElement.addEventListener('ended', handleEnded);
+      
+      return () => {
+        videoElement.removeEventListener('ended', handleEnded);
+      };
+    }
+  }, [onComplete]);
+
   return (
     <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
       <iframe
@@ -17,6 +35,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoHash, fallbackUrl }) => 
       />
       {/* Hidden video element for future IPFS implementation */}
       <video 
+        ref={videoRef}
         className="hidden"
         controls
         data-ipfs-hash={videoHash}
@@ -28,4 +47,4 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoHash, fallbackUrl }) => 
   );
 }
 
-export default VideoPlayer
+export default VideoPlayer;

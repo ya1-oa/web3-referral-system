@@ -1,28 +1,27 @@
 import { Dispatch, SetStateAction } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { TestTube, BookOpen, BarChart2, Users, Settings } from 'lucide-react';
+import { TestTube, BookOpen, BarChart2, Users } from 'lucide-react';
 import { WalletConnect } from './WalletConnect';
 import { MobileMenu } from './MobileMenu';
 
-interface UserStats {
-  referrer: string;
-  referralCount: bigint;
-  totalRewards: bigint;
-  isRegistered: boolean;
-  isSubscribed: boolean;
-  tokenID: bigint;
-}
+//interface UserStats {
+//  referrer: string;
+//  referralCount: bigint;
+//  totalRewards: bigint;
+//  isRegistered: boolean;
+//  isSubscribed: boolean;
+//  tokenID: bigint;
+//}
 
 interface HeaderProps {
   onConnectIsAddress: Dispatch<SetStateAction<string | null>>;
-  stats: UserStats | null;
   currentAddress: string | null;  // Add this
 }
 
-export function Header({ onConnectIsAddress, stats, currentAddress }: HeaderProps) {
+export function Header({ onConnectIsAddress, currentAddress }: HeaderProps) {
   const location = useLocation();
   const isConnected = Boolean(currentAddress);
-
+  
   const navigation = [
     { name: 'Get A Web3 Wallet!', href: '/getwallet', icon: BookOpen, requiresSubscription: false },
     { name: 'Modules', href: '/modules', icon: BookOpen, requiresSubscription: true },

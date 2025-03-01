@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link, Navigate } from 'react-router-dom';
-import { TestTube, Clock, ClipboardCheck } from 'lucide-react';
+import { useState } from 'react';
+import {Navigate } from 'react-router-dom';
+import { TestTube,  } from 'lucide-react';
 import { useSubscriptionNFT } from '../lib/web3/hooks';
 import { renewSubscription } from '../lib/web3/referral';
 
@@ -22,7 +22,30 @@ const SubscriptionPage = ({ stats, address}: SubscriptionProps) => {
     return <Navigate to="/" />;
   }
   const { nftData, loading } = useSubscriptionNFT(address);
-  
+
+  const [renewing, setRenewing] = useState(false);
+
+  const handleRenew = async () => {
+    setRenewing(true);
+    try {
+      await renewSubscription();
+      window.location.reload();
+    } catch (err: any) {
+      console.error('Failed to renew:', err);
+      const errorMessage = err.message?.includes("reason: ") 
+        ? err.message.split("reason: ")[1].split('"')[0]
+        : "Unknown error occurred";
+      alert(`Renewal failed: ${errorMessage}`);
+    } finally {
+      setRenewing(false);
+    }
+  };
+
+  if (loading && renewing) {
+    return  <div className="container mx-auto px-4 py-8">
+    <div className="text-center text-white">Loading...</div>
+  </div>
+  }
   return (
     <div className="min-h-screen bg-[#0A1929] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md mx-auto">
@@ -65,6 +88,7 @@ const SubscriptionPage = ({ stats, address}: SubscriptionProps) => {
 
                 <button
                   disabled={stats?.isSubscribed}
+                  onClick={handleRenew}
                   className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-cyan-500 hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {stats?.isSubscribed ? 'Subscription Active' : 'Renew Subscription'}

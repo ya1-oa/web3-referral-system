@@ -1,8 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { ReferralRegistration } from '../components/ReferralRegistration';
 import { TestTube } from 'lucide-react';
-import { CheckCircle } from 'lucide-react';
-import { useEffect } from 'react';
+
 
 interface UserStats {
   referrer: string;
@@ -19,7 +16,9 @@ interface ReferralDashboardProps {
 }
 
 export function ReferralDashboard({ stats, address}: ReferralDashboardProps) {                           
-  
+  if (stats && address) {
+
+  }
   return (
     <div className="py-20 overflow-hidden">
       <div className="container mx-auto px-4">

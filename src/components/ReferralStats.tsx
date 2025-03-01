@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
-import { Users, Award, BarChart2, TrendingUp, Share2, AlertCircle } from 'lucide-react';
-import { useUserStats, useUserReferrals, useReferralTree, useBatchUserStats, useGetAddress } from '../lib/web3/hooks';
+import { Users, Award, BarChart2, Share2, AlertCircle } from 'lucide-react';
+import { useReferralTree, useBatchUserStats, useGetAddress } from '../lib/web3/hooks';
 import { formatReward, shortenAddress } from '../lib/web3/utils';
 import { SubscriptionNFT } from './SubscriptionNFTData';
 import debounce from 'lodash/debounce';
-import { add } from 'lodash';
 
 interface UserStats {
   referrer: string;
@@ -131,6 +129,7 @@ export function ReferralStats({stats, address}: ReferralStatsProps)  {
   
   useEffect(() => {
     if (
+      shouldUpdate() &&
       tree &&
       batchStats &&
       stats &&

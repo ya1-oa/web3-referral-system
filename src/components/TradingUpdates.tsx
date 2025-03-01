@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { TrendingUp, ArrowUpRight, ArrowDownRight, Clock, Share2, MessageCircle, ChevronDown } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Clock, MessageCircle, ChevronDown } from 'lucide-react';
 
 interface TradingPost {
   id: number;
@@ -13,21 +13,21 @@ interface TradingPost {
   isPositive?: boolean;
 }
 
-interface UserStats {
-  referrer: string;
-  referralCount: bigint;
-  totalRewards: bigint;
-  isRegistered: boolean;
-  isSubscribed: boolean;
-  tokenID: bigint;
-}
+//interface UserStats {
+//  referrer: string;
+//  referralCount: bigint;
+//  totalRewards: bigint;
+//  isRegistered: boolean;
+//  isSubscribed: boolean;
+//  tokenID: bigint;
+//}
 
-interface TradingProps {
-  stats: UserStats | null;
-  address: string | null;
-}
+//interface TradingProps {
+//  stats: UserStats | null;
+//  address: string | null;
+//}
 
-function TradingUpdates({stats, address} : TradingProps) {
+function TradingUpdates() {
   const [posts, setPosts] = useState<TradingPost[]>(() => 
     Array.from({ length: 20 }, (_, i) => generatePost(i))
   );
