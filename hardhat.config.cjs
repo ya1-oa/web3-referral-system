@@ -11,7 +11,7 @@ module.exports = {
     },
     polygon: {
       url: "https://polygon.llamarpc.com",
-      accounts: [process.env.POLYGON_PRIVATE_KEY],
+      accounts: process.env.POLYGON_PRIVATE_KEY ? [process.env.POLYGON_PRIVATE_KEY] : [],
       gasPrice: 2000000000,
     }
   },
