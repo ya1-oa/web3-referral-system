@@ -65,8 +65,8 @@ function App() {
     <div className="min-h-screen bg-[#0A1929] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CiAgPHBhdGggZD0iTTAgMGg2MHY2MEgweiIgZmlsbD0ibm9uZSIvPgogIDxwYXRoIGQ9Ik0zMCAzMG0tMjggMGEyOCAyOCAwIDEgMCA1NiAwYTI4IDI4IDAgMSAwLTU2IDB6IiBzdHJva2U9IiMxMTJBNDUiIGZpbGw9Im5vbmUiLz4KPC9zdmc+')] bg-repeat">
       <main>
         <Header onConnectIsAddress={setAddress} currentAddress={address} />
-          <Routes>
           <ModulesProvider initialModules={initialModules}>
+          <Routes>
             <Route path="/" element= {<ReferralDashboard stats={stats} address={address} />} />
             <Route path="/register" element= {
               <ProtectedRoute>
@@ -91,8 +91,8 @@ function App() {
             <Route path="/my-modules" element={<MyModules />} />
             <Route path="/settings" element= {<SettingsProp stats={stats} address={address}/>} />
             <Route path="/getwallet" element= {<GetWallet stats={stats} address={address}/>} />
-            </ModulesProvider>
           </Routes>
+          </ModulesProvider>
 
       </main>
     </div>
